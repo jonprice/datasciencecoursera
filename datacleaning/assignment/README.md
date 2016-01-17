@@ -36,6 +36,8 @@ Init()
 Process()
 ```
 
+see CodeBook.md for description of summarised data outputed by the Process(). function.
+
 
 
 ## Original Data
