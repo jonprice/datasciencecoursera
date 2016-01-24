@@ -1,0 +1,95 @@
+---
+title: "Regression analyses of MPG data"
+author: "Jon"
+date: "19 January 2016"
+output: pdf_document
+---
+
+# Executive Summary
+
+This report uses the mtcars dataset to evaluate the follow questions. 
+
+* Is an automatic or manual transmission better for MPG
+* Quantify the MPG difference between automatic and manual transmissions
+
+To answer these questions I first evaluated several linear regression models to select the one that best described the data without overfitting. The model selected was `mpg ~ wt + qsec + am`. Using the coefficients of this model I determined the effect size for switching from automatic to manual while the other variables are kept the same. The conclusion based on this investigation is that manual is better for MPG, and has a estimated effect of 2.9 MPG increase for switching from automatic to manual. 
+
+# Exploratory Data Analyses
+
+The mtcars dataset contains 11 variables, output of `str(mtcars)` and `summary(mtcars)` can be seen in figure 1 of the appendix. From this output we can see that transmission type is coded as a numeric, but really should be a factor. This is corrected using `mtcars$am <- as.factor(mtcars$am); levels(mtcars$am) <- c("auto", "man")`. Before correcting this a correlation matrices `cor(mtcars)` can be generated to analyse variable correlations, See figure 2 of the appendix for output.
+
+# Method for model selection
+
+To answer the questions about transmission type on MPG we need to generate a model that will allow the transmission type to be evaluated while holding the other factor equal, i.e. simply comparing the mean MPG of the two transmission types is likely invalided as transmission type is confounded with other variables that influence MPG. Simply creating a model that uses all variables is also not the best model as with the small dataset it's likely to overfit the data. 
+
+Using the correlation table focussing on the mpg column the wt (weight) has the highest correlation to MPG. The next 3 values cyl, disp and hp are also high, but when checking these variables for correlation to wt it can be seen they are also highly correlated and inclusion will increase the model bias. To select further variables the step function is used to automatically search for the best model. 
+
+```{r}
+mod <- lm(mpg ~ ., data = mtcars)
+stepOutput <- step(mod,trace=FALSE)
+stepOutput$call
+```
+
+The output of steps is wt, qsec and am. To confirm the output of steps, we can compare the models ```mpg ~ am``` vs ```mpg ~ am + wt``` vs ```mpg ~ am + wt + qsec``` and ```mpg ~ am``` vs ```mpg ~ am + qsec``` vs ```mpg ~ am + qsec + wt``` using anova see figure 3 for outputs. 
+
+In both cases we see that adding both wt and qsec had a significant effect (P < 0.05). Therefore the model that will be used to answer the MPG questions is ```mpg ~ wt + qsec + am```.
+
+# Model Residual plot and  Diagnostics
+
+Reviewing the residuals plots from figure 4 the only things looks a bit concerning is the Residuals vs fitted plot which may be showing a bit of heteroskedasticity, although it doesn't appear to be too bad and may be just an artefact of the low sample numbers. 
+
+
+# Conclusion
+
+Summary of selected model. 
+
+```{r, fig.height = 8, fig.width = 8, echo=FALSE}
+fit <-lm(mpg ~ wt + qsec + am, data = mtcars)
+summary(fit)
+sumCoef <- summary(fit)$coefficients
+```
+
+With 95% confidence, we estimate that switching from automatic to manual while keeping weight and 1/4 second mile time the same
+will results in a `r round(sumCoef[4,1] - qt(.975, df = fit$df) * sumCoef[4, 2], 2)` to `r round(sumCoef[4,1] + qt(.975, df = fit$df) * sumCoef[4, 2], 2)` increase in MPG. Therefore, given a car switching from automatic to manual, which is unlikely to affect the weight or 1/4 second mile time is better for MPG, although this difference may be very small. 
+
+---
+
+# Appendix
+
+### figure 1
+```{r}
+data("mtcars")
+str(mtcars)
+summary(mtcars)
+```
+
+### figure 2
+```{r}
+cor(mtcars)
+mtcars$am <- as.factor(mtcars$am)
+levels(mtcars$am) <- c("auto", "man")
+```
+
+### figure 3
+```{r }
+fit1 <- lm(mpg ~ am, data = mtcars)
+fit2 <- lm(mpg ~ wt + am , data = mtcars)
+fit3 <-lm(mpg ~ wt + qsec + am, data = mtcars)
+anova(fit1, fit2,fit3)
+```
+
+```{r }
+fit1 <- lm(mpg ~ am, data = mtcars)
+fit2 <- lm(mpg ~ qsec + am , data = mtcars)
+fit3 <-lm(mpg ~ wt + qsec + am, data = mtcars)
+anova(fit1, fit2,fit3)
+```
+
+### figure 4
+```{r, fig.height = 8, fig.width = 8, echo=FALSE}
+par(mfrow = c(2, 2))
+fit <- lm(mpg ~ wt + qsec + am , data = mtcars)
+plot(fit)
+```
+
+
