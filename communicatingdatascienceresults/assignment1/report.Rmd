@@ -1,8 +1,9 @@
 ---
-title: "Time of day and day of week effect the frequency but not location of theft from vehicles in San Francisco in summer 2014 "
+title: 'Time of day and day of week effect the frequency but not location of theft
+  from vehicles in San Francisco in summer 2014 '
 author: "Jon"
 date: "24 January 2016"
-output: html_document
+output: pdf_document
 ---
 
 This report looks at how the time of day and day of week affected thefts from vehicles in San Francisco during the summer of 2014. In this analysis, we see there is a clear trend of theft from vehicles peaking in the evening and dipping early morning. When looking at how crime varied throughout the week, there is a slight peaking during the weekend starting on Friday. The same data was then plotted by location to see if weekday vs weekend or daytime vs nighttime had an effect on the location of the crime. These plots did not show any clear trends. 
@@ -105,4 +106,4 @@ The spread of crime location does not appear to be affected by the night vs day 
 
 # Reproducibility
 
-This document was produced using R and R Markdown. The raw R Markdown document includes all the code to manipulate the data and generate the plots can be viewed at --. 
+This document was produced using R and R Markdown. The raw R Markdown document includes all the code to manipulate the data and generate the plots can be viewed at https://github.com/jonprice/datasciencecoursera/blob/master/communicatingdatascienceresults/assignment1/report.Rmd. 
