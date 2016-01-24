@@ -1,0 +1,7 @@
+name: Publish Document
+account: rpubs
+server: rpubs.com
+bundleId:
+        https://api.rpubs.com/api/v1/document/145065/b96f1286686d4cffa4cd3e4931bd2fe0
+url: http://rpubs.com/jonprice/145065
+when: 1453426273.15237

@@ -1,0 +1,160 @@
+---
+title: "Evaluation of Storm effect on Population Health and Economic Consequences"
+author: "Jon"
+date: "21 January 2016"
+output: html_document
+---
+
+# Synopsis
+
+This report compares the effects of different types of storms as recorded by the NOAA Storm Database between 1950 and end in November 2011. To evaluate the effect on population health, the number of fatalities and injuries were summed for each type of storm. This showed that **Tornados** were found to be the most damaging on population health. To evaluating the storm type effect on economic consequences, the amount of damage done in dollar amounts to crops and property were summed for each type of storm. This showed that **Floods** caused the most damaging. This report did not investigate if this trend has changed in later years when recording of event types may have changed. 
+
+
+
+# Data Processing
+
+Data downloaded from https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2. 
+
+```{r cache=TRUE}
+stormData <- read.csv("repdata-data-StormData.csv.bz2")
+```
+
+
+The data that is needed to address the questions are 
+
+* EVTYPE      - Factor    - Type of storm
+* FATALITIES  - num       - Total fatalities
+* INJURIES    - num       - Total injuries
+* PROPDMG     - num       - Damage rounded to three significant digits 
+* PROPDMGEXP  - Factor    - Magnitude of the property damage number.
+* CROPDMG     - num       - Damage rounded to three significant digits 
+* CROPDMGEXP  - Factor    - Magnitude of the property damage number.
+
+### Remove magnitude multipler
+
+Before comparing the damage amounts they have to be converted to the same units. Documntation intercates there are 3 valid levels
+“K” thousands.
+“M” for millions.
+“B” for billions. 
+
+Reviewing the data there are values that are not valid modifiers. To see if this may be a problem we can calculate the pecentage of invalid modifiers. 
+
+```{r}
+# caclulate the percent of values that have a value that are not valid. 
+length(stormData$PROPDMGEXP[!stormData$PROPDMGEXP %in% c("","K", "M", "B")])/length(stormData$PROPDMGEXP[!stormData$PROPDMGEXP %in% c("")]) 
+length(stormData$CROPDMGEXP[!stormData$CROPDMGEXP %in% c("","K", "M", "B")])/length(stormData$CROPDMGEXP[!stormData$CROPDMGEXP %in% c("")]) 
+```
+
+In both cases the amount of invalid values are less than 0.1% so we will ignore them. 
+
+Apply the caclculation Damage amount * Magnitude multipler. 
+
+```{r cache=TRUE}
+
+calculateAmount <- function(row, amount, mag){
+  amount <- as.numeric(row[amount])
+  if(row[mag] == "B"){
+    amount * 1000000000
+  } else   if(row[mag] == "M"){
+   amount * 1000000
+  } else   if(row[mag] == "K"){
+    amount * 1000
+  } else {
+    amount * 0
+  }
+}
+
+stormData$propTotals <- apply(stormData, 1, calculateAmount, amount = "PROPDMG", mag="PROPDMGEXP")
+stormData$cropTotals <- apply(stormData, 1, calculateAmount, amount = "CROPDMG", mag="CROPDMGEXP")
+
+```
+
+
+Create a summary tables by summing the columns needed to answer the question by the EventType.
+
+```{r}
+totalByEventType <- aggregate(cbind(propTotals, cropTotals, FATALITIES, INJURIES) ~ EVTYPE, sum, data = stormData )
+```
+
+
+# Results
+
+
+
+## Storm effects on Population Health
+
+To evaluate the effect on population health the number of Fatalities and Ingury will be plotted 
+
+
+```{r fig.width=10}
+library(ggplot2)
+library(gridExtra)
+
+numToPlot <- 3
+topFatOrder <- head(order(totalByEventType$FATALITIES, decreasing = TRUE), numToPlot)
+
+g1 <- ggplot(totalByEventType[topFatOrder,], aes(x = reorder(EVTYPE, -FATALITIES), y = FATALITIES))
+g1 <- g1 + geom_bar(stat="identity") + xlab("Event Type") + ylab("Number of Fatalities")
+       
+
+topInjOrder <- head(order(totalByEventType$INJURIES, decreasing = TRUE), numToPlot)
+
+g2 <- ggplot(totalByEventType[topInjOrder,], aes(x = reorder(EVTYPE, -INJURIES), y = INJURIES))
+g2 <- g2 + geom_bar(stat="identity") + xlab("Event Type") + ylab("Number of Injuries")
+     
+grid.arrange(grobs = list(g1,g2), ncol = 2, top = "Effects of Severe Weather Events on U.S. Population Health")
+
+```
+
+These graphs show that **Tornado** have caused the most fatialites and injuries as recorded by the  NOAA Storm Database between 1950 and end in November 2011. Excessive heat, TSTM wind, and Flooding are the next most significant storm types on fatialites/injuries. 
+
+
+## Storm effects on Economic Consequences
+
+To evaluate the effect on Economic Consequences amount of damage measured in dollars will be plotted for Properties, Crops and total. 
+
+
+```{r fig.width=10}
+library(ggplot2)
+library(gridExtra)
+
+numToPlot <- 3
+
+topPropOrder <- head(order(totalByEventType$propTotals, decreasing = TRUE), numToPlot)
+g1 <- ggplot(totalByEventType[topPropOrder,], aes(x = reorder(EVTYPE, -propTotals), y = propTotals))
+g1 <- g1 + geom_bar(stat="identity") + xlab("Event Type") + ylab("Amount of Damage") + ggtitle("Property Damage")
+       
+
+topCropOrder <- head(order(totalByEventType$cropTotals, decreasing = TRUE), numToPlot)
+
+g2 <- ggplot(totalByEventType[topCropOrder,], aes(x = reorder(EVTYPE, -cropTotals), y = cropTotals))
+g2 <- g2 + geom_bar(stat="identity") + xlab("Event Type") + ylab("Amount of Damage") + ggtitle("Crop Damage")
+     
+grid.arrange(grobs = list(g1,g2), ncol=2, top = "Damage to Property and Crops caused by Severe Weather Events in the U.S. ")
+
+```
+
+These graphs show that **Flood** has caused the most Property damage and **Drought** has caused the most Crop damage as recorded by the  NOAA Storm Database between 1950 and end in November 2011. (Note there is a difference scale on the Property vs Crop plots.) 
+
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+numToPlot <- 5
+totalByEventType$totals = totalByEventType$propTotals + totalByEventType$cropTotals
+
+topOrder <- head(order(totalByEventType$totals, decreasing = TRUE), numToPlot)
+g1 <- ggplot(totalByEventType[topOrder,], aes(x = reorder(EVTYPE, -totals), y = totals))
+g1 <- g1 + geom_bar(stat="identity") + xlab("Event Type") + ylab("Number of Fatalities") + ggtitle("Total damage caused by Severe Weather Events in the U.S.")
+g1       
+
+
+```
+
+
+This graphs show that **Flood** has caused the most damage in total as recorded by the  NOAA Storm Database between 1950 and end in November 2011. Hurricane/Typhoon, Tornado and storm surge have the next most siginificant effect on total damage, and when just looking at crop damage flooding is the next most significant effect after dought. 
+
+*********
+
+
