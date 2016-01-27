@@ -1,0 +1,198 @@
+---
+title: "Testing accuracy of different machine learning methods on the Weight Lifting Exercises Dataset"
+author: "Jon"
+date: "27 January 2016"
+output: html_document
+---
+
+# Abstract
+
+In this paper, I tested 4 different machine learning methods against the Weight Lifting Exercises Dataset[1] with the goal of predicting if the lift was performed correctly. Random Forest was able to predict the unseen lifts from the dataset with an accuracy of 99%. When the model was retrained leaving an entire subject out of the training data, to simulate out of sample error on unseen subjects this accuracy dropped significantly to 18% for one subject and 50% for another. It can be concluded that Random Forest is able to give accurate predictions of lifting errors when the model is trained on the subject, but for unseen subjects, more work and possible more training subjects is needed to create an accurate model. 
+
+
+
+
+## Data Cleaning
+
+
+```{r echo=FALSE, results="hide"}
+library(randomForest)
+library(caret)
+library(parallel)
+library(doParallel)
+library(ggplot2)
+library(randomForest)
+cl <- makeCluster(8)
+registerDoParallel(cl)
+
+set.seed(2365)
+```
+
+
+### Dealing with NA
+
+The dataset contains a lot of NA. To exam the problem I will count the number of NA in each column. 
+
+```{r}
+rawTrainingData <- read.csv("pml-training.csv",na.strings=c("NA", "", "#DIV/0!"))
+naCounts <- apply(rawTrainingData, 2, function(s) {sum(is.na(s))})
+sorted <- sort(naCounts)
+```
+
+This reveals that 6 columns have no values, and the further 94 have 95+ % of the values missing. Therefore, theses will be removed from the data set. 
+
+```{r}
+noNATraningData <- rawTrainingData[,colSums(is.na(rawTrainingData))  == 0]
+```
+
+### Removing other data
+
+The values like timestamp, sequence numbers that are not sensor measurements will also be removed. The subject identifier variable will be left in the dataset. 
+
+```{r}
+trainingData <- noNATraningData[,c(-1, -3,-4, -5, -6,-7)]
+```
+
+
+
+### Cross Validation
+
+As I will be comparing several different models I will need both a test and validation set to prevent overfitting the test set through repeated uses for model testing. To create these datasets, I will use the  holdout method by creating a 50% train/testing split and then split the testing into test and validation. 
+
+
+```{r cache=TRUE}
+
+inTrain <- createDataPartition(y=trainingData$classe,p=0.5, list=FALSE)
+training <- trainingData[inTrain,]
+alltesting <- trainingData[-inTrain,]
+
+inTrain <- createDataPartition(y=alltesting$classe,p=0.5, list=FALSE)
+testing <- alltesting[inTrain,]
+validation <- alltesting[-inTrain,]
+```
+
+
+
+
+# Model Testing
+
+
+The first model tested is a simple decision tree using caret and rpart with the standard defaults. This model is trained using all the variables. 
+
+```{r cache=TRUE}
+modFit1 <- train(classe ~ .,data=training,method="rpart")
+modFit1Con <- confusionMatrix(predict(modFit1, testing) , testing$classe)
+modFit1Con
+```
+
+This model has a low accuracy of only around 50%. 
+
+The next model to try is linear discriminant analysis (LDA), I will try this model with both the variables from the dataset and then the variables preprocessed with PCA. 
+
+```{r cache=TRUE}
+modFit2 <- train(training$classe ~ .,data=training,method="lda")
+modFit2Con <- confusionMatrix(predict(modFit2, testing) , testing$classe)
+modFit2Con 
+
+
+modFit3 <- train(training$classe ~ .,data=training,preProcess = "pca", method="lda")
+modFit3Con <- confusionMatrix(predict(modFit3, testing) , testing$classe)
+modFit3Con 
+
+
+```
+
+Standard LDA got a good improvement at 72% accuracy while the PCA pre-processed version performed about the same as the decision tree at 53% accuracy. 
+
+
+The next model I will try is a random forest. In this case, for performance reasons, I will use the random forest library directly and will create 500 trees. 
+
+
+```{r}
+
+modFit4 <- randomForest(classe ~ .,data=training,method="rf", ntree=500)
+modFit4Con <- confusionMatrix(predict(modFit4, testing), testing$classe)
+modFit4Con
+```
+
+This model increased accuracy to 99%. 
+
+# Model Evaluation
+
+The following graph shows the accuracy of each of the models. 
+
+
+```{r}
+
+accuracy <- c(modFit1Con$overall[1]*100, modFit2Con$overall[1]*100, modFit3Con$overall[1]*100, modFit4Con$overall[1]*100)
+type <- c("Rpart", "LDA", "LDA with PCA", "Random Forest")
+qplot(type, accuracy, main = "Accuracy of models",  size = I(3))
+```
+
+
+As the plot shows in the models tested Random Forest by far has the best performance.The default parameters and 500 trees give 99% accuracy so further tuning with this training/testing sets can only give very limited gains. 
+
+To test the estimated out of sample error, I will use the validation set. 
+
+```{r}
+modFit5Con <- confusionMatrix(predict(modFit4, validation), validation$classe)
+modFit5Con
+```
+
+This validation testing has given an accuracy of 99%, the same as the test which is expected as only 4 models were tested with little parameter tuning so it's unlikely there was any overfitting to the test set. This estimate of out of sample accuracy is probably limited to predictions made about one of the six subjects included in the training data. Out of sample accuracy for unseen subjects is probably much lower. 
+
+
+# Model Evaluation Estimate on Unseen Person
+
+
+To test the hypotheses that the models very high accuracy is due learning each individual's movements a further set of validation will be done to simulated model performance on an unseen person. To do this I will split the training data into a training set of 5 subjects and a test set of 1 subjects, I will do this twice. In addition, the subject column will be removed.  
+
+
+
+```{r}
+
+training2 <- trainingData[trainingData$user_name %in% c("adelmo", "carlitos",  "charles",  "pedro" ,"eurico"),]
+testing2 <- trainingData[trainingData$user_name %in% c(  "jeremy"),]
+
+training2 <- training2[,-1]
+testing2 <- testing2[,-1]
+
+modFit6 <- randomForest(classe ~ .,data=training2,method="rf", ntree=500)
+modFit6Con <- confusionMatrix(predict(modFit6, testing2), testing2$classe)
+modFit6Con
+
+
+
+training3 <- trainingData[trainingData$user_name %in% c("adelmo", "carlitos",  "charles",  "pedro" ,"jeremy"),]
+testing3 <- trainingData[trainingData$user_name %in% c(  "eurico"),]
+
+training3 <- training3[,-1]
+testing3 <- testing3[,-1]
+
+modFit7 <- randomForest(classe ~ .,data=training3,method="rf", ntree=500)
+modFit7Con <- confusionMatrix(predict(modFit7, testing3), testing3$classe)
+modFit7Con
+
+```
+
+
+As expected when making predictions for an unseen person the accuracy drops. For Jeremy, the accuracy was 51%. For Eurico the performance was 18%, which was due to almost all predictions been for the E class. 
+
+
+
+# Conclusion
+
+The testing performed in this report showed that using Random Forest to create a model provides very high accuracy 99%+ in future predictions when the model is trained on the subject that the predictions are been made for.  If the model is used to predict for a subject unseen during training the accuracy is poor and varies widely between subjects, in the two test done one scored 18% accuracy, in another 51% accuracy was achieved. This could mean training with more subjects and further tuning of the models may lead to better and more consistent predictions.
+
+
+```{r  echo=FALSE, results="hide"}
+stopCluster(cl)
+```
+
+[1] Weight Lifting Exercises Dataset
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. [Qualitative Activity Recognition of Weight Lifting Exercises](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201). Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+
+
+
