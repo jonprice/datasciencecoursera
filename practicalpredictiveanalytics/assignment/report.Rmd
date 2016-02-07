@@ -1,0 +1,99 @@
+---
+title: "report"
+author: "Jon"
+date: "29 January 2016"
+output: html_document
+---
+
+# Problem Description
+
+The compitition I selected is the (Digit Recognizer)[https://www.kaggle.com/c/digit-recognizer] ploblem. This problem uses one of the standard machine learning data sets called MNIST ("Modified National Institute of Standards and Technology"). The aim of the problem is to classify an image of a handwitten digits. Each image is represented as a 28 by 28 pixle image and each pixle has a value 0 to 255. Each image represents a single digit from 0 to 9. The solution is evaluated by making predictions for 28000 unlabeled images and having these predictions compared to the correct answers and the score been the pecentage correct. 
+
+
+
+# Analysis Approach
+
+To create a labeled test set I split the training data in half using a random split on the label column to ensure every label is represented even in the test and training set. Using the training data and the Caret package I traned a Nearest Neighbors model. 
+
+
+
+# Initial Solution
+
+To create the solution I used R with the Caret package, additionally, I used the doMC package to take advantage of multiple cores. To create a labeled test set, I split the training data in half using a random split on the label column to ensure every label is represented evenly in the test and training set. Using the training data and the Caret package, I trained a Nearest Neighbors model using the default parameters. One of the biggest challenges was because of the high number of examples and the number of columns the model training and predictions took a long time, to work around this I initially subsetted the training data to 200 rows to make sure all the code was correct etc. Once I knew the code was correct I reran on the full data. 
+
+# Initial Solution Analysis
+
+Running predictions on the test set resulted in a XXX percent accuracy. One of the problems with using a Nearest Neighbor model on a high dimension data set is the curse of dimensionality. Because of the high dimension, the distance between images is going to be large. One way to resolve this is to reduce the data dimension by using Principal component analysis PCA. 
+
+# Revised Solution and Analysis
+ 
+Using PCA I created the eigenvectors using the training data and then selected the first 30 columns which made up 85% of the data variability. Using this was a xxx reduction in dimensions. Using this new dataset, I trained a new Nearest Neighbor model. 
+
+
+
+To test this new model I used the same eigenvectors created from the training data and applied them to the test data then ran the predictions. This improved the score to.  
+
+[1]
+
+
+```{r}
+library(caret)
+library(doMC)
+registerDoMC(cores=8)
+
+set.seed(345)
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+
+train$label <- as.factor(train$label)
+
+inTrain <- createDataPartition(y=train$label,p=0.5, list=FALSE)
+training <- train[inTrain,]
+testing <- train[-inTrain,]
+
+training = training[1:200,]
+
+
+
+
+
+```
+
+
+
+```{r}
+
+modFit1 <- train(label ~ .,data=training,method="knn")
+modFit1Con <- confusionMatrix(predict(modFit1, testing) , testing$label)
+modFit1Con
+
+```
+
+```{r}
+
+prc <- prcomp(training[, -1], center=FALSE, scale=FALSE)
+
+cols <- sum(cumsum((prc$sdev)^2) / sum(prc$sdev^2) <.85)
+pcaTraining <- as.matrix(training[, -1]) %*% prc$rotation
+modFit2 <- train(training$label ~ .,data=pcaTraining[,1:cols], method="knn")
+
+pcaTesting <- as.matrix(testing[, -1]) %*% prc$rotation
+modFit2Con <- confusionMatrix(predict(modFit2, pcaTesting[,1:cols]) , testing$label)
+modFit2Con 
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
