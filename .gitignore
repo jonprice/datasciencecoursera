@@ -26,3 +26,7 @@ dataproducts/assignment/presentation-figure
 assignment.dcf
 practicalmachinelearning/assignment/report_cache
 helper.R
+.RData
+machine-learning-ex1.zip
+octave-workspace
+token.mat
