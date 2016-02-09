@@ -39,19 +39,32 @@ Theta2_grad = zeros(size(Theta2));
 %         cost function computation is correct by verifying the cost
 %         computed in ex4.m
 
+% Create labels matrix
+for i = 1:num_labels
+  y_m(:, i) =  y == i;
+end
 
-X
+
 % Add ones to the X data matrix
 X = [ones(m, 1) X];
 
 
-X
+z2 = X * Theta1';
+A2 = sigmoid(z2);
 
-size(Theta1)
+A2 = [ones(size(A2, 1), 1) A2];
+
+z3 = A2 * Theta2';
+A3 = sigmoid(z3);
+
+J = sum(sum(-1 * (y_m .* log(A3)) .- (1 - y_m) .*  (log(1 - A3))))/m;
 
 
+theta1NoBias =  Theta1(:,2:end)(:);
+theta2NoBias =  Theta2(:,2:end)(:);
 
 
+J = J + (lambda / (2 * m)) * (theta1NoBias' * theta1NoBias + theta2NoBias' * theta2NoBias );
 
 
 % Part 2: Implement the backpropagation algorithm to compute the gradients
@@ -68,7 +81,30 @@ size(Theta1)
 %         Hint: We recommend implementing backpropagation using a for-loop
 %               over the training examples if you are implementing it for the
 %               first time.
-%
+
+
+
+
+d3 =  A3 - y_m;
+
+
+
+temp = ( d3 * Theta2(:,2:end));
+d2 = temp .*  sigmoidGradient(z2);
+%d2 = d2(:, 2:end);
+
+
+Theta2Reg = (lambda/m) .* Theta2;
+Theta1Reg =  (lambda/m) .* Theta1;
+
+Theta2Reg(:, 1) = 0;
+Theta1Reg(:, 1) = 0;
+
+Theta2_grad = d3' * A2 .* 1/m +Theta2Reg;
+
+Theta1_grad = d2' * X .* 1/m + Theta1Reg;
+
+
 % Part 3: Implement regularization with the cost function and gradients.
 %
 %         Hint: You can implement this around the code for
@@ -76,12 +112,6 @@ size(Theta1)
 %               the regularization separately and then add them to Theta1_grad
 %               and Theta2_grad from Part 2.
 %
-
-
-
-
-
-
 
 
 
